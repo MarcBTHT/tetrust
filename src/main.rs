@@ -26,6 +26,12 @@ enum GameUpdate {
     KeyPress(Key),
     Tick,
 }
+//#[derive(PartialEq, Eq)]
+enum GameOver {
+    TopOut,
+    LockOut,
+    BlockOut,
+}
 
 #[derive(Debug, Copy, Clone)]
 struct Point {
@@ -48,13 +54,10 @@ impl Board {
         }
         for row in 0..BOARD_HEIGHT {
             for col in 0..BOARD_WIDTH {
-                match self.cells[row as usize][col as usize] {
-                    Some(color) => {
+                if let Some(color) = self.cells[row as usize][col as usize] {
                         let c = 1 + (col * 2);
                         display.set_text(" ", c, row, color, color);
                         display.set_text(" ", c + 1, row, color, color);
-                    },
-                    None => ()
                 }
             }
         }
@@ -291,6 +294,7 @@ struct Game {
     piece_bag: PieceBag,
     piece: Piece,
     piece_position: Point,
+    score: u32,
 }
 
 impl Game {
@@ -304,7 +308,8 @@ impl Game {
             },
             piece_bag: piece_bag,
             piece: piece,
-            piece_position: Point{ x: 0, y: 0 }
+            piece_position: Point{ x: 0, y: 0 },
+            score: 0
         };
 
         game.place_new_piece();
@@ -329,7 +334,9 @@ impl Game {
         // Render the level
         let left_margin = BOARD_WIDTH * 2 + 5;
         display.set_text("Level: 1", left_margin, 3, Color::Red, Color::Black);
-
+        let score_line = format!("score {}",self.score);
+        display.set_text(&score_line,left_margin, 4, Color::Red, Color::Black);
+        
         // Render the currently falling piece
         let x = 1 + (2 * self.piece_position.x);
         self.render_piece(display, &self.piece, Point{ x: x, y: self.piece_position.y });
@@ -405,7 +412,8 @@ impl Game {
     fn advance_game(&mut self) -> bool {
         if !self.move_piece(0, 1) {
             self.board.lock_piece(&self.piece, self.piece_position);
-            self.board.clear_lines();
+            let nb_lines_clear = self.board.clear_lines();
+            self.score = self.score + nb_lines_clear;
             self.piece = self.piece_bag.pop();
 
             if !self.place_new_piece() {
